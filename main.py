@@ -44,7 +44,12 @@ SCHEMA = {
             "value_range": obj_schema(),
             "correlation": {
                 "type": "array",
-                "items": {}
+                "items": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False
+                }
             }
         },
         "required": [
