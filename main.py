@@ -6,16 +6,16 @@ from openai import OpenAI
 
 app = FastAPI()
 
-# Read the environment variables you specified
+# 1. Fetch the keys using a custom name for the proxy URL to avoid conflicts
 api_key = os.environ.get("OPENAI_API_KEY")
-base_url = os.environ.get("OPENAI_BASE_URL") # Will be None if not provided
+custom_proxy = os.environ.get("CUSTOM_PROXY_URL")  # Changed name to avoid system errors
 
-# Initialize OpenAI client dynamically
-# If base_url is provided, it uses the proxy. If not, it uses official OpenAI.
-if base_url:
-    client = OpenAI(api_key=api_key, base_url=base_url)
+# 2. Safely initialize OpenAI client
+if custom_proxy and custom_proxy.strip():
+    client = OpenAI(api_key=api_key, base_url=custom_proxy.strip())
 else:
     client = OpenAI(api_key=api_key)
+
 
 # Define what the incoming request looks like
 class AudioRequest(BaseModel):
