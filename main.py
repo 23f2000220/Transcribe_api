@@ -6,18 +6,16 @@ from openai import OpenAI
 
 app = FastAPI()
 
-# 1. Fetch the keys using a custom name for the proxy URL to avoid conflicts
+# Read your standard environment variables
 api_key = os.environ.get("OPENAI_API_KEY")
-custom_proxy = os.environ.get("CUSTOM_PROXY_URL")  # Changed name to avoid system errors
+base_url = os.environ.get("OPENAI_BASE_URL")
 
-# 2. Safely initialize OpenAI client
-if custom_proxy and custom_proxy.strip():
-    client = OpenAI(api_key=api_key, base_url=custom_proxy.strip())
+# Initialize OpenAI client using your preferred standard variables
+if base_url:
+    client = OpenAI(api_key=api_key, base_url=base_url)
 else:
     client = OpenAI(api_key=api_key)
 
-
-# Define what the incoming request looks like
 class AudioRequest(BaseModel):
     audio_id: str
     audio_base64: str
@@ -38,7 +36,7 @@ async def verify_audio(payload: AudioRequest):
             transcript = client.audio.transcriptions.create(
                 model="whisper-1", 
                 file=audio_file,
-                language="ko" # Enforces Korean language processing
+                language="ko"
             )
         
         # Clean up the temporary file
@@ -46,7 +44,6 @@ async def verify_audio(payload: AudioRequest):
             os.remove(temp_filename)
 
         # 4. Construct the strict JSON template required by your system
-        # (This will return success, but remember to update empty stats if needed!)
         response_data = {
             "rows": 1,
             "columns": ["audio_id", "transcription"],
