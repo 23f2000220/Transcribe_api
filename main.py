@@ -88,7 +88,14 @@ def solve(req: InReq):
                     "content": f"audio_id={req.audio_id}\naudio_base64={req.audio_base64}"
                 }
             ],
-            text={"format": {"type": "json_schema", "json_schema": SCHEMA}}
+            text={
+    "format": {
+        "type": "json_schema",
+        "name": "audio_stats",
+        "schema": SCHEMA["schema"],
+        "strict": True
+    }
+}
         )
         return resp.output_parsed if hasattr(resp, "output_parsed") and resp.output_parsed else resp.output_text
     except Exception as e:
