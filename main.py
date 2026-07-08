@@ -1,38 +1,47 @@
 import os
 import base64
-import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
-from openai import APITimeoutError
 
-app = FastAPI(title="Audio Exact-Match API")
+app = FastAPI(title="Audio Stats API")
 
 class InReq(BaseModel):
     audio_id: str
     audio_base64: str
 
-EMPTY = {
-    "rows": 0,
-    "columns": [],
-    "mean": {},
-    "std": {},
-    "variance": {},
-    "min": {},
-    "max": {},
-    "median": {},
-    "mode": {},
-    "range": {},
-    "allowed_values": {},
-    "value_range": {},
-    "correlation": []
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
+
+SCHEMA = {
+    "name": "audio_stats",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "rows": {"type": "integer"},
+            "columns": {"type": "array", "items": {"type": "string"}},
+            "mean": {"type": "object"},
+            "std": {"type": "object"},
+            "variance": {"type": "object"},
+            "min": {"type": "object"},
+            "max": {"type": "object"},
+            "median": {"type": "object"},
+            "mode": {"type": "object"},
+            "range": {"type": "object"},
+            "allowed_values": {"type": "object"},
+            "value_range": {"type": "object"},
+            "correlation": {"type": "array", "items": {}}
+        },
+        "required": [
+            "rows","columns","mean","std","variance","min","max",
+            "median","mode","range","allowed_values","value_range","correlation"
+        ],
+        "additionalProperties": False
+    },
+    "strict": True
 }
-
-API_KEY = os.getenv("OPENAI_API_KEY")
-BASE_URL = os.getenv("OPENAI_BASE_URL")
-
-timeout = httpx.Timeout(10.0, connect=3.0, read=7.0, write=7.0, pool=3.0)
-client = OpenAI(api_key=API_KEY, base_url=BASE_URL, timeout=timeout) if API_KEY and BASE_URL else None
 
 @app.get("/")
 def health():
@@ -40,30 +49,30 @@ def health():
 
 @app.post("/")
 def solve(req: InReq):
-    if client is None:
-        raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY or OPENAI_BASE_URL")
-
     try:
         audio_bytes = base64.b64decode(req.audio_base64)
-        prompt_ko = (
-            "너는 한국어 오디오 입력을 분석하는 API다. "
-            "반드시 오직 JSON만 반환하고, 추가 설명은 금지한다."
-        )
 
-        _ = client.responses.create(
+        resp = client.responses.create(
             model="gpt-4o-mini",
             input=[
-                {"role": "system", "content": prompt_ko},
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 한국어 오디오에서 표/수치 정보를 추출합니다. "
+                        "오디오 내용을 분석하여 정확한 JSON만 반환하세요. "
+                        "추가 설명은 절대 금지입니다."
+                    ),
+                },
                 {
                     "role": "user",
-                    "content": f"audio_id={req.audio_id}, bytes={len(audio_bytes)}",
+                    "content": f"audio_id={req.audio_id}, audio_bytes={len(audio_bytes)}",
                 },
             ],
+            text={"format": {"type": "json_schema", **SCHEMA}},
         )
 
-        return EMPTY
+        data = resp.output_text
+        return data
 
-    except APITimeoutError:
-        raise HTTPException(status_code=504, detail="OpenAI proxy timed out")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
