@@ -1,8 +1,8 @@
 import os
-import base64
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
+import httpx
 
 app = FastAPI(title="Audio Stats API")
 
@@ -13,34 +13,57 @@ class InReq(BaseModel):
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     base_url=os.getenv("OPENAI_BASE_URL"),
+    http_client=httpx.Client(timeout=httpx.Timeout(10.0, connect=3.0, read=7.0, write=7.0, pool=3.0)),
 )
+
+def obj_schema():
+    return {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": False
+    }
 
 SCHEMA = {
     "name": "audio_stats",
+    "strict": True,
     "schema": {
         "type": "object",
         "properties": {
             "rows": {"type": "integer"},
             "columns": {"type": "array", "items": {"type": "string"}},
-            "mean": {"type": "object"},
-            "std": {"type": "object"},
-            "variance": {"type": "object"},
-            "min": {"type": "object"},
-            "max": {"type": "object"},
-            "median": {"type": "object"},
-            "mode": {"type": "object"},
-            "range": {"type": "object"},
-            "allowed_values": {"type": "object"},
-            "value_range": {"type": "object"},
-            "correlation": {"type": "array", "items": {}}
+            "mean": obj_schema(),
+            "std": obj_schema(),
+            "variance": obj_schema(),
+            "min": obj_schema(),
+            "max": obj_schema(),
+            "median": obj_schema(),
+            "mode": obj_schema(),
+            "range": obj_schema(),
+            "allowed_values": obj_schema(),
+            "value_range": obj_schema(),
+            "correlation": {
+                "type": "array",
+                "items": {}
+            }
         },
         "required": [
-            "rows","columns","mean","std","variance","min","max",
-            "median","mode","range","allowed_values","value_range","correlation"
+            "rows",
+            "columns",
+            "mean",
+            "std",
+            "variance",
+            "min",
+            "max",
+            "median",
+            "mode",
+            "range",
+            "allowed_values",
+            "value_range",
+            "correlation"
         ],
         "additionalProperties": False
-    },
-    "strict": True
+    }
 }
 
 @app.get("/")
@@ -50,29 +73,23 @@ def health():
 @app.post("/")
 def solve(req: InReq):
     try:
-        audio_bytes = base64.b64decode(req.audio_base64)
-
         resp = client.responses.create(
             model="gpt-4o-mini",
             input=[
                 {
                     "role": "system",
                     "content": (
-                        "당신은 한국어 오디오에서 표/수치 정보를 추출합니다. "
-                        "오디오 내용을 분석하여 정확한 JSON만 반환하세요. "
-                        "추가 설명은 절대 금지입니다."
-                    ),
+                        "당신은 한국어 오디오를 분석합니다. "
+                        "반드시 JSON만 출력하고, 설명은 하지 마세요."
+                    )
                 },
                 {
                     "role": "user",
-                    "content": f"audio_id={req.audio_id}, audio_bytes={len(audio_bytes)}",
-                },
+                    "content": f"audio_id={req.audio_id}\naudio_base64={req.audio_base64}"
+                }
             ],
-            text={"format": {"type": "json_schema", **SCHEMA}},
+            text={"format": {"type": "json_schema", "json_schema": SCHEMA}}
         )
-
-        data = resp.output_text
-        return data
-
+        return resp.output_parsed if hasattr(resp, "output_parsed") and resp.output_parsed else resp.output_text
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
