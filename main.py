@@ -9,7 +9,7 @@ import os
 EMAIL = "23f2000220@ds.study.iitm.ac.in"
 # AIPIPE_TOKEN = "PASTE_YOUR_AIPIPE_TOKEN"
 
-AIPIPE_TOKEN=os.environ["OPENAI_API_KEY"],
+AIPIPE_TOKEN=os.environ["OPENAI_API_KEY"]
 AIPIPE_BASE=os.environ.get("OPENAI_BASE_URL", "https://aipipe.org/openai/v1")
 # ==================================
 # AIPIPE_BASE = "https://aipipe.org/openai/v1"
